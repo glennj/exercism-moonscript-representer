@@ -1,8 +1,48 @@
-FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS builder
 
-# TODO: install packages required to run the representer
-RUN apk add --no-cache bash jq
+ENV LUA_VER="5.5.0"
+ENV LUA_CHECKSUM="57ccc32bbbd005cab75bcc52444052535af691789dba2b9016d5c50640d68b3d"
+ENV LUAROCKS_VER="3.13.0"
+ENV LUAROCKS_GPG_KEY="3FD8F43C2BB3C478"
+
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends build-essential ca-certificates curl gcc git gnupg make unzip && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get purge --auto-remove && \
+    apt-get clean
+
+RUN curl -R -O -L http://www.lua.org/ftp/lua-${LUA_VER}.tar.gz && \
+    [ "$(sha256sum lua-${LUA_VER}.tar.gz | cut -d' ' -f1)" = "${LUA_CHECKSUM}" ] && \
+    tar -zxf lua-${LUA_VER}.tar.gz && \
+    cd lua-${LUA_VER} && \
+    make all install && \
+    cd .. && \
+    rm lua-${LUA_VER}.tar.gz && \
+    rm -rf lua-${LUA_VER}
+
+RUN curl -R -O -L https://luarocks.org/releases/luarocks-${LUAROCKS_VER}.tar.gz && \
+    curl -R -O -L https://luarocks.org/releases/luarocks-${LUAROCKS_VER}.tar.gz.asc && \
+    gpg --keyserver keyserver.ubuntu.com --recv-keys ${LUAROCKS_GPG_KEY} && \
+    gpg --verify luarocks-${LUAROCKS_VER}.tar.gz.asc luarocks-${LUAROCKS_VER}.tar.gz && \
+    tar -zxpf luarocks-${LUAROCKS_VER}.tar.gz && \
+    cd luarocks-${LUAROCKS_VER} && \
+    ./configure && make && make install && \
+    cd .. && \
+    rm luarocks-${LUAROCKS_VER}.tar.gz.asc && \
+    rm luarocks-${LUAROCKS_VER}.tar.gz && \
+    rm -rf luarocks-${LUAROCKS_VER}
+
+RUN luarocks install moonscript
+RUN luarocks install penlight
+RUN luarocks install lua-parser
+RUN luarocks install dkjson
+
+# ------------------------------------------------------------
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64
+
+COPY --from=builder /usr/local /usr/local
 
 WORKDIR /opt/representer
 COPY . .
-ENTRYPOINT ["/opt/representer/bin/run.sh"]
+
+ENTRYPOINT ["/opt/representer/bin/run.moon"]

@@ -2,35 +2,24 @@
 
 The Docker image to automatically create a representation for MoonScript solutions submitted to [Exercism].
 
-## Getting started
+## Process for creating the representation
 
-Build the representer, conforming to the [Representer interface specification](https://github.com/exercism/docs/blob/main/building/tooling/representers/interface.md).
-Update the files to match your track's needs. At the very least, you'll need to update `bin/run.sh`, `Dockerfile` and the test solutions in the `tests` directory.
-The existing test solutions are suggestions for you could be testing, but remember to add your track-specific files too
-
-- Tip: look for `TODO:` comments to point you towards code that need updating
-- Tip: look for `OPTIONAL:` comments to point you towards code that _could_ be useful
-
-### Default Implementation
-
-The default implementation should work as follows:
-
-- The `representation.txt` contains the concatenated solution files
-  - Solution files are separated by an empty line
-  - Solution files are identified via the the `.files.solution[]` property in the `.meta/config.json` file
-- The `mapping.json` contains an empty JSON object (`{}`)
-
-#### Normalizations
-
-- Blank files in the solution files are removed in the `representation.txt`
-- Line-based trailing whitespace in the solution files is removed in the `representation.txt`
+- for each source file in the input directory, use `moonc` to compile to Lua
+- use [`lua-parser`][lua-parser] to create a stringified AST of the Lua code
+- replace all `Id "identifier"` substrings with `Id "IDENT_n"`
+    - if "identifier" has **not** already been seen in the placeholder mapping
+        - increment `n`, the id counter
+        - add `identifier: "IDENT_#{n}"` to the placeholder map
+    - replace the identifier with it's mapping
 
 ## Run the representer
 
 To create a representation for a single solution, do the following:
 
 1. Open a terminal in the project's root
-2. Run `./bin/run.sh <exercise-slug> <solution-dir> <output-dir>`
+2. Run `./bin/run.moon <exercise-slug> <solution-dir> <output-dir>`
+
+See the Dockerfile for software you need to install to run it locally.
 
 Once the representer has finished, its results will be written to `<output-dir>/representation.txt` and `<output-dir>/mapping.json`.
 
@@ -69,16 +58,7 @@ These are [golden tests][golden] that compare the `representation.txt` and `mapp
 
 When you've made modifications to the code that will result in a new "golden" state, you'll need to generate and commit a new `tests/<test-name>/expected_representation.txt` and `tests/<test-name>/expected_mapping.json` file.
 
-## Benchmarking
-
-There are two scripts you can use to benchmark the representer:
-
-1. `./bin/benchmark.sh`: benchmark the representer code
-2. `./bin/benchmark-in-docker.sh`: benchmark the Docker image
-
-These scripts can give a rough estimation of the representer's performance.
-Bear in mind though that the performance on Exercism's production servers is often lower.
-
+[lua-parser]: https://github.com/andremm/lua-parser
 [representers]: https://github.com/exercism/docs/tree/main/building/tooling/representers
 [golden]: https://ro-che.info/articles/2017-12-04-golden-tests
 [exercism]: https://exercism.io
